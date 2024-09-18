@@ -31,6 +31,13 @@ export const REACT_ELEMENT_TYPE =
 // Some libraries like `react-virtualized` explicitly check for this.
 Component.prototype.isReactComponent = {};
 
+let oldVNodeHook = options.vnode;
+options.vnode = vnode => {
+	vnode.$$typeof = REACT_ELEMENT_TYPE;
+
+	if (oldVNodeHook) oldVNodeHook(vnode);
+};
+
 // `UNSAFE_*` lifecycle hooks
 // Preact only ever invokes the unprefixed methods.
 // Here we provide a base "fallback" implementation that calls any defined UNSAFE_ prefixed method.
