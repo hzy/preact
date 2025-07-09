@@ -341,6 +341,7 @@ export interface Options {
 	 * is used.
 	 */
 	attr?(name: string, value: any): string | void;
+	document?: Document;
 }
 
 export const options: Options;

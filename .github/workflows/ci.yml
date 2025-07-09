@@ -29,19 +29,7 @@ jobs:
               - '**/src/**/*.js'
               - '!devtools/src/devtools.js'
 
-  compressed_size:
-    name: Compressed Size
-    needs: filter_jobs
-    if: ${{ needs.filter_jobs.outputs.jsChanged == 'true' }}
-    uses: ./.github/workflows/size.yml
-
   build_test:
     name: Build & Test
     needs: filter_jobs
     uses: ./.github/workflows/build-test.yml
-
-  benchmarks:
-    name: Benchmarks
-    needs: build_test
-    if: ${{ needs.filter_jobs.outputs.jsChanged == 'true' }}
-    uses: ./.github/workflows/benchmarks.yml
