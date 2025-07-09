@@ -408,10 +408,10 @@ function diffElementNodes(
 
 	if (dom == null) {
 		if (nodeType === null) {
-			return document.createTextNode(newProps);
+			return options.document.createTextNode(newProps);
 		}
 
-		dom = document.createElementNS(
+		dom = options.document.createElementNS(
 			namespace,
 			nodeType,
 			newProps.is && newProps
