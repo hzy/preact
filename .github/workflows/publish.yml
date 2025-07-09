@@ -1,0 +1,62 @@
+name: Publish
+
+on:
+  workflow_call:
+    inputs:
+      release:
+        description: 'github release tag to publish'
+        type: string
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Obtain OIDC token
+        id: oidc
+        run: |
+          token=$(curl --fail -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=cfa.rspack.dev" | jq -r '.value')
+          echo "::add-mask::${token}"
+          echo "token=${token}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Obtain GitHub credentials
+        id: github_creds
+        run: |
+          token=$(curl --fail "https://cfa.rspack.dev/api/request/${{ secrets.CFA_PROJECT_ID }}/github/credentials" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: bearer ${{ secrets.CFA_SECRET }}" \
+            --data "{\"token\":\"${{ steps.oidc.outputs.token }}\"}" | jq -r '.GITHUB_TOKEN')
+          echo "::add-mask::${token}"
+          echo "token=${token}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Add dependencies
+        run: |
+          npm install @continuous-auth/client@2.3.2
+          npm install tar-stream@3.1.7
+
+      - name: Publish to npm
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+          node scripts/release/publish.mjs ${{ inputs.release }}
+        env:
+          CFA_HOST: https://cfa.rspack.dev
+          # NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # for pnpm
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }} # for npm
+          GITHUB_TOKEN: ${{ steps.github_creds.outputs.token }}
+          GITHUB_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          CFA_PROJECT_ID: ${{ secrets.CFA_PROJECT_ID }}
+          CFA_SECRET: ${{ secrets.CFA_SECRET }}

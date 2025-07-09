@@ -63,4 +63,4 @@ jobs:
           path: preact.tgz
       - name: Publish with pkg.pr.new
         run: |
-          npx pkg-pr-new publish
+          npx pkg-pr-new publish --json
