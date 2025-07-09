@@ -2,6 +2,7 @@ import { execFileSync } from 'child_process';
 import fs from 'fs';
 import { fetch, stream } from 'undici';
 import sade from 'sade';
+import { modifyPackageJSON } from './modify-package-json.mjs';
 
 let DEBUG = false;
 const log = {
@@ -22,7 +23,7 @@ async function main(tag, opts) {
 	log.debug('Options:', opts);
 
 	// 1. Find a release with the matching tag
-	const getReleaseByTagUrl = `https://api.github.com/repos/preactjs/preact/releases/tags/${tag}`;
+	const getReleaseByTagUrl = `https://api.github.com/repos/hzy/preact/releases/tags/${tag}`;
 	const response = await fetch(getReleaseByTagUrl);
 	if (response.status == 404) {
 		log.error(
@@ -76,7 +77,12 @@ async function main(tag, opts) {
 			method: 'GET',
 			maxRedirections: 30
 		},
-		() => fs.createWriteStream(packageAsset.name)
+		() =>
+			modifyPackageJSON(fs.createWriteStream(packageAsset.name), pkg => ({
+				...pkg,
+				version: tag,
+				name: '@hongzhiyuan/preact'
+			}))
 	);
 
 	// 3. Run npm publish
