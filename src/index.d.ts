@@ -399,3 +399,5 @@ export interface Context<T> {
 export interface PreactContext<T> extends Context<T> {}
 
 export function createContext<T>(defaultValue: T): Context<T>;
+
+export function process(): void;

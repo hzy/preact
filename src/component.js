@@ -219,7 +219,7 @@ export function enqueueRender(c) {
 const depthSort = (a, b) => a._vnode._depth - b._vnode._depth;
 
 /** Flush the render queue by rerendering all queued components */
-function process() {
+export function process() {
 	let c;
 	rerenderQueue.sort(depthSort);
 	// Don't update `renderCount` yet. Keep its value non-zero to prevent unnecessary
