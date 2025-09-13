@@ -408,15 +408,12 @@ function diffElementNodes(
 	}
 
 	if (dom == null) {
+		dom = options.setupDom(newVNode);
 		if (nodeType === null) {
-			return options.document.createTextNode(newProps);
+			// @ts-expect-error
+			dom.setAttribute(0, newProps);
+			return dom;
 		}
-
-		dom = options.document.createElementNS(
-			namespace,
-			nodeType,
-			newProps.is && newProps
-		);
 
 		// we are creating a new node, so we can assume this is a new subtree (in
 		// case we are hydrating), this deopts the hydrate
@@ -432,7 +429,8 @@ function diffElementNodes(
 	if (nodeType === null) {
 		// During hydration, we still have to split merged text from SSR'd HTML.
 		if (oldProps !== newProps && (!isHydrating || dom.data !== newProps)) {
-			dom.data = newProps;
+			// @ts-expect-error
+			dom.setAttribute(0, newProps);
 		}
 	} else {
 		// If excessDomChildren was not null, repopulate it with the current element's children:
