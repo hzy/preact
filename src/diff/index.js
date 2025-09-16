@@ -567,6 +567,8 @@ function diffElementNodes(
  * @param {VNode} vnode
  */
 export function applyRef(ref, value, vnode) {
+	// convert virtual dom into react lynx ref proxy
+	value = options.refProxy(value);
 	try {
 		if (typeof ref == 'function') {
 			let hasRefUnmount = typeof ref._unmount == 'function';
