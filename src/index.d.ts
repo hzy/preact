@@ -359,6 +359,7 @@ export interface Options {
 	document?: Document;
 	_diff2?(newVNode: VNode, oldVNode: VNode): void;
 	renderComponent?(newVNode: VNode, component: any): void;
+	refProxy?(dom: PreactElement | null): any | null;
 }
 
 export const options: Options;
