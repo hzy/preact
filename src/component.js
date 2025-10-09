@@ -138,6 +138,7 @@ function renderComponent(component) {
 			oldVNode,
 			component._globalContext,
 			component._parentDom.namespaceURI,
+			0,
 			oldVNode._flags & MODE_HYDRATE ? [oldDom] : null,
 			commitQueue,
 			oldDom == null ? getDomSibling(oldVNode) : oldDom,
