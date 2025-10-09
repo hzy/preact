@@ -138,6 +138,8 @@ function renderComponent(component) {
 			oldVNode,
 			component._globalContext,
 			component._parentDom.namespaceURI,
+			// @ts-expect-error vendor-specific component property
+			component.__slotIndex,
 			oldVNode._flags & MODE_HYDRATE ? [oldDom] : null,
 			commitQueue,
 			oldDom == null ? getDomSibling(oldVNode) : oldDom,
