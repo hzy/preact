@@ -16,6 +16,7 @@ import { getDomSibling } from '../component';
  * @param {object} globalContext The current context object - modified by
  * getChildContext
  * @param {string} namespace Current namespace of the DOM node (HTML, SVG, or MathML)
+ * @param {number | boolean} slotIndex The index of the slot being processed
  * @param {Array<PreactElement>} excessDomChildren
  * @param {Array<Component>} commitQueue List of components which have callbacks
  * to invoke in commitRoot
@@ -33,6 +34,7 @@ export function diffChildren(
 	oldParentVNode,
 	globalContext,
 	namespace,
+	slotIndex,
 	excessDomChildren,
 	commitQueue,
 	oldDom,
@@ -82,6 +84,7 @@ export function diffChildren(
 			oldVNode,
 			globalContext,
 			namespace,
+			slotIndex === true ? i : undefined,
 			excessDomChildren,
 			commitQueue,
 			oldDom,
