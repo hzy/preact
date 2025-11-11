@@ -119,6 +119,8 @@ declare global {
 		_children?: VNode<any> | null;
 		/** Event listeners to support event delegation */
 		_listeners?: Record<string, (e: Event) => void>;
+		__nextSlotIndex?: number;
+		__slotIndex?: number;
 	}
 
 	export interface PreactEvent extends Event {
@@ -182,6 +184,8 @@ declare global {
 		_processingException?: Component<any, any> | null;
 		// Always read, set only when handling error. This is used to indicate at diffTime to set _processingException
 		_pendingError?: Component<any, any> | null;
+		// Internal slot index
+		_slotIndex?: number;
 	}
 
 	export interface PreactContext extends preact.Context<any> {
