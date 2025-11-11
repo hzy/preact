@@ -299,6 +299,7 @@ export function diff(
 	) {
 		newVNode._children = oldVNode._children;
 		newVNode._dom = oldVNode._dom;
+		newVNode._dom.__nextSlotIndex = slotIndex;
 	} else {
 		newVNode._dom = diffElementNodes(
 			oldVNode._dom,
@@ -312,6 +313,7 @@ export function diff(
 			isHydrating,
 			refQueue
 		);
+		newVNode._dom.__nextSlotIndex = slotIndex;
 	}
 
 	if ((tmp = options.diffed)) tmp(newVNode);
@@ -416,16 +418,13 @@ function diffElementNodes(
 
 	if (dom == null) {
 		if (nodeType === null) {
-			// @ts-expect-error vendor-specific createTextNode
-			return options.document.createTextNode(newProps, slotIndex);
+			return options.document.createTextNode(newProps);
 		}
 
 		dom = options.document.createElementNS(
 			namespace,
 			nodeType,
-			newProps.is && newProps,
-			// @ts-expect-error vendor-specific createElementNS
-			slotIndex
+			newProps.is && newProps
 		);
 
 		// we are creating a new node, so we can assume this is a new subtree (in

@@ -119,6 +119,8 @@ declare global {
 		_children?: VNode<any> | null;
 		/** Event listeners to support event delegation */
 		_listeners?: Record<string, (e: Event) => void>;
+		__nextSlotIndex?: number;
+		__slotIndex?: number;
 	}
 
 	export interface PreactEvent extends Event {
