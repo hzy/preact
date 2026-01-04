@@ -1,5 +1,6 @@
 import { setupRerender, act } from 'preact/test-utils';
-import { createElement, render, createContext } from 'preact';
+import { createElement, render, createContext, Component } from 'preact';
+import { vi } from 'vitest';
 import { useState, useContext, useEffect } from 'preact/hooks';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
 
@@ -18,6 +19,7 @@ describe('useState', () => {
 	});
 
 	afterEach(() => {
+		Component.prototype.shouldComponentUpdate = undefined;
 		teardown(scratch);
 	});
 
@@ -55,7 +57,7 @@ describe('useState', () => {
 		let lastState;
 		let doSetState;
 
-		const Comp = sinon.spy(() => {
+		const Comp = vi.fn(() => {
 			const [state, setState] = useState(0);
 			lastState = state;
 			doSetState = setState;
@@ -64,24 +66,24 @@ describe('useState', () => {
 
 		render(<Comp />, scratch);
 		expect(lastState).to.equal(0);
-		expect(Comp).to.be.calledOnce;
+		expect(Comp).toHaveBeenCalledOnce();
 
 		doSetState(0);
 		rerender();
 		expect(lastState).to.equal(0);
-		expect(Comp).to.be.calledOnce;
+		expect(Comp).toHaveBeenCalledOnce();
 
 		doSetState(() => 0);
 		rerender();
 		expect(lastState).to.equal(0);
-		expect(Comp).to.be.calledOnce;
+		expect(Comp).toHaveBeenCalledOnce();
 	});
 
 	it('rerenders when setting the state', () => {
 		let lastState;
 		let doSetState;
 
-		const Comp = sinon.spy(() => {
+		const Comp = vi.fn(() => {
 			const [state, setState] = useState(0);
 			lastState = state;
 			doSetState = setState;
@@ -90,18 +92,18 @@ describe('useState', () => {
 
 		render(<Comp />, scratch);
 		expect(lastState).to.equal(0);
-		expect(Comp).to.be.calledOnce;
+		expect(Comp).toHaveBeenCalledOnce();
 
 		doSetState(1);
 		rerender();
 		expect(lastState).to.equal(1);
-		expect(Comp).to.be.calledTwice;
+		expect(Comp).toHaveBeenCalledTimes(2);
 
 		// Updater function style
 		doSetState(current => current * 10);
 		rerender();
 		expect(lastState).to.equal(10);
-		expect(Comp).to.be.calledThrice;
+		expect(Comp).toHaveBeenCalledTimes(3);
 	});
 
 	it('can be set by another component', () => {
@@ -370,5 +372,107 @@ describe('useState', () => {
 		setChild(false);
 		rerender();
 		expect(scratch.innerHTML).to.equal('<p>hello world!!!</p>');
+	});
+
+	describe('Global sCU', () => {
+		let prevScu;
+		beforeAll(() => {
+			prevScu = Component.prototype.shouldComponentUpdate;
+			Component.prototype.shouldComponentUpdate = () => {
+				return true;
+			};
+		});
+
+		afterAll(() => {
+			Component.prototype.shouldComponentUpdate = prevScu;
+		});
+
+		it('correctly updates with multiple state updates', () => {
+			let simulateClick;
+
+			let renders = 0;
+			function TestWidget() {
+				renders++;
+				const [saved, setSaved] = useState(false);
+
+				simulateClick = () => {
+					setSaved(true);
+					setSaved(false);
+				};
+
+				return <div>{saved ? 'Saved!' : 'Unsaved!'}</div>;
+			}
+
+			render(<TestWidget />, scratch);
+			expect(scratch.innerHTML).to.equal('<div>Unsaved!</div>');
+			expect(renders).to.equal(1);
+
+			act(() => {
+				simulateClick();
+			});
+
+			expect(scratch.innerHTML).to.equal('<div>Unsaved!</div>');
+			expect(renders).to.equal(2);
+		});
+	});
+
+	it('Works when we combine strict equality, signals bail and state settling', () => {
+		// In signals we bail when we are using no signals/computeds/....
+		Component.prototype.shouldComponentUpdate = function (
+			nextProps,
+			nextState
+		) {
+			return false;
+		};
+		let setA, setB;
+
+		const fooContext = createContext();
+		const barContext = createContext();
+
+		function FooProvider({ children }) {
+			const [a, _setA] = useState(0);
+			setA = _setA;
+			return <fooContext.Provider value={a}>{children}</fooContext.Provider>;
+		}
+
+		function BarProvider({ children }) {
+			const [b, _setB] = useState(0);
+			setB = _setB;
+			return <barContext.Provider value={b}>{children}</barContext.Provider>;
+		}
+
+		function Child() {
+			const a = useContext(fooContext);
+			const b = useContext(barContext);
+			return (
+				<p>
+					{a}-{b}
+				</p>
+			);
+		}
+
+		function App() {
+			return (
+				<FooProvider>
+					<BarProvider>
+						<Child />
+					</BarProvider>
+				</FooProvider>
+			);
+		}
+
+		render(<App />, scratch);
+		expect(scratch.innerHTML).to.equal('<p>0-0</p>');
+
+		act(() => {
+			// We update A first so that we have a top-down render going on
+			setA(1);
+			// The update will bail at B, we don't want sCU to run because
+			// else we risk the state's _nextValue being settled too early
+			// and thus applying the update too early and bailing on the subsequent
+			// render due to the values already being applied.
+			setB(1);
+		});
+		expect(scratch.innerHTML).to.equal('<p>1-1</p>');
 	});
 });

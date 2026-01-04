@@ -1,4 +1,4 @@
-import { setupRerender } from 'preact/test-utils';
+import { act, setupRerender } from 'preact/test-utils';
 import React, {
 	createElement,
 	render,
@@ -9,7 +9,8 @@ import React, {
 	createContext,
 	useState,
 	useEffect,
-	useLayoutEffect
+	useLayoutEffect,
+	memo
 } from 'preact/compat';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
 import { createLazy, createSuspender } from './suspense-utils';
@@ -104,7 +105,61 @@ describe('suspense', () => {
 		});
 	});
 
+	it('should handle lazy component that rejects without returning a component', async () => {
+		const errorSpy = sinon.spy();
+		let renderCount = 0;
+
+		let resolve;
+		function fakeImport() {
+			const p = new Promise((_, reject) => {
+				resolve = () => {
+					reject(new Error('import failed'));
+					return p;
+				};
+			});
+			return p;
+		}
+
+		const SomeComponent = lazy(() =>
+			fakeImport().catch(e => {
+				console.log('caught', e);
+				errorSpy(e);
+			})
+		);
+
+		const App = () => {
+			renderCount++;
+			if (renderCount > 5) {
+				throw new Error('Infinite loop detected!');
+			}
+
+			console.log('RENDER COUNT', renderCount);
+			return (
+				<div>
+					<Suspense fallback={<div>loading</div>}>
+						<SomeComponent />
+					</Suspense>
+				</div>
+			);
+		};
+
+		render(<App />, scratch);
+		rerender();
+
+		expect(scratch.innerHTML).to.contain('loading');
+
+		const assert = () => {
+			rerender();
+
+			expect(scratch.innerHTML).to.contain('<div></div>');
+			expect(errorSpy).to.have.been.called;
+		};
+
+		resolve().then(assert).catch(assert);
+	});
+
 	it('should reset hooks of components', () => {
+		/** @type {(v) => void} */
 		let set;
 		const LazyComp = ({ name }) => <div>Hello from {name}</div>;
 
@@ -155,6 +210,7 @@ describe('suspense', () => {
 	});
 
 	it('should call effect cleanups', () => {
+		/** @type {(v) => void} */
 		let set;
 		const effectSpy = sinon.spy();
 		const layoutEffectSpy = sinon.spy();
@@ -296,6 +352,25 @@ describe('suspense', () => {
 		return resolve().then(() => {
 			rerender();
 			expect(ref.current.constructor).to.equal(LazyComp);
+		});
+	});
+
+	it('should not duplicate DOM when suspending while rendering', () => {
+		scratch.innerHTML = '<div>Hello</div>';
+
+		const [Lazy, resolve] = createLazy();
+		render(
+			<Suspense>
+				<Lazy />
+			</Suspense>,
+			scratch
+		);
+		rerender(); // Flush rerender queue to mimic what preact will really do
+		expect(scratch.innerHTML).to.equal('');
+
+		return resolve(() => <div>Hello</div>).then(() => {
+			rerender();
+			expect(scratch.innerHTML).to.equal('<div>Hello</div>');
 		});
 	});
 
@@ -1355,6 +1430,7 @@ describe('suspense', () => {
 	it('should un-suspend when suspender unmounts', () => {
 		const [Suspender, suspend] = createSuspender(() => <div>Suspender</div>);
 
+		/** @type {() => void} */
 		let hide;
 
 		class Conditional extends Component {
@@ -1408,6 +1484,7 @@ describe('suspense', () => {
 			<div>Suspender 2</div>
 		));
 
+		/** @type {() => void} */
 		let hide, resolve;
 
 		class Conditional extends Component {
@@ -1476,7 +1553,10 @@ describe('suspense', () => {
 			return <div>{`Lazy ${value}`}</div>;
 		}
 
-		let hide, setValue;
+		/** @type {() => void} */
+		let hide,
+			/** @type {(v) => void} */
+			setValue;
 
 		class Conditional extends Component {
 			constructor(props) {
@@ -1541,6 +1621,7 @@ describe('suspense', () => {
 	it('should allow resolve suspense promise after unmounts', async () => {
 		const [Suspender, suspend] = createSuspender(() => <div>Suspender</div>);
 
+		/** @type {() => void} */
 		let hide, resolve;
 
 		class Conditional extends Component {
@@ -1588,6 +1669,7 @@ describe('suspense', () => {
 	it('should support updating state while suspended', async () => {
 		const [Suspender, suspend] = createSuspender(() => <div>Suspender</div>);
 
+		/** @type {() => void} */
 		let increment;
 
 		class Updater extends Component {
@@ -1653,6 +1735,7 @@ describe('suspense', () => {
 
 		Suspender.prototype.componentWillUnmount = cWUSpy;
 
+		/** @type {() => void} */
 		let hide;
 
 		let suspender = null;
@@ -1748,6 +1831,7 @@ describe('suspense', () => {
 			}
 		}
 
+		/** @type {Suspender} */
 		let suspender;
 		class Suspender extends Component {
 			constructor(props) {
@@ -1874,6 +1958,7 @@ describe('suspense', () => {
 			return content;
 		}
 
+		/** @type {Component} */
 		let parent;
 		class Parent extends Component {
 			constructor(props) {
@@ -2127,5 +2212,58 @@ describe('suspense', () => {
 			rerender();
 			expect(scratch.innerHTML).to.equal('<div><p>hello world</p></div>');
 		});
+	});
+
+	it('should re-execute descendant memoed component effect when lazy boundary resolves', async () => {
+		const MemodComp = memo(() => {
+			const [state, setState] = useState('Memod effect not executed');
+			useEffect(() => {
+				setState('Memod effect executed');
+			}, []);
+			return <span>{state}</span>;
+		});
+
+		const NormalComp = () => {
+			const [state, setState] = useState('effect not executed');
+			useEffect(() => {
+				setState('effect executed');
+			}, []);
+			return <span>{state}</span>;
+		};
+
+		/** @type {() => Promise<void>} */
+		let resolve;
+		const LazyComp = lazy(() => {
+			const p = new Promise(res => {
+				resolve = () => {
+					res({ default: NormalComp });
+					return p;
+				};
+			});
+
+			return p;
+		});
+
+		render(
+			<Suspense fallback={<div>Suspended...</div>}>
+				<div>
+					<MemodComp />
+					<LazyComp />
+				</div>
+			</Suspense>,
+			scratch
+		);
+
+		rerender();
+
+		expect(scratch.innerHTML).to.eql(`<div>Suspended...</div>`);
+
+		await resolve();
+
+		await act(() => rerender());
+
+		return expect(scratch.innerHTML).to.eql(
+			`<div><span>Memod effect executed</span><span>effect executed</span></div>`
+		);
 	});
 });

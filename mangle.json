@@ -25,6 +25,7 @@
   "props": {
     "cname": 6,
     "props": {
+      "$_hasScuFromHooks": "__f",
       "$_listeners": "l",
       "$_cleanup": "__c",
       "$__hooks": "__H",
@@ -37,7 +38,6 @@
       "$_args": "__H",
       "$_factory": "__h",
       "$_depth": "__b",
-      "$_nextDom": "__d",
       "$_dirty": "__d",
       "$_mask": "__m",
       "$_detachOnNextRender": "__b",
@@ -63,7 +63,7 @@
       "$_context": "c",
       "$_defaultValue": "__",
       "$_id": "__c",
-      "$_contextRef": "__",
+      "$_contextRef": "__l",
       "$_parentDom": "__P",
       "$_originalParentDom": "__O",
       "$_prevState": "__u",

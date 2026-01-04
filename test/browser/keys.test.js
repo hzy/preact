@@ -58,14 +58,14 @@ describe('keys', () => {
 	let resetRemoveChild;
 	let resetRemove;
 
-	before(() => {
+	beforeAll(() => {
 		resetAppendChild = logCall(Element.prototype, 'appendChild');
 		resetInsertBefore = logCall(Element.prototype, 'insertBefore');
 		resetRemoveChild = logCall(Element.prototype, 'removeChild');
 		resetRemove = logCall(Element.prototype, 'remove');
 	});
 
-	after(() => {
+	afterAll(() => {
 		resetAppendChild();
 		resetInsertBefore();
 		resetRemoveChild();
@@ -686,7 +686,7 @@ describe('keys', () => {
 		expect(Stateful2Ref).to.equal(Stateful2MovedRef);
 	});
 
-	it('should effectively iterate on large lists', done => {
+	it('should effectively iterate on large lists', async () => {
 		const newItems = () =>
 			Array(100)
 				.fill(0)
@@ -741,13 +741,15 @@ describe('keys', () => {
 		set();
 		rerender();
 
-		setTimeout(() => {
-			expect(mutatedNodes.length).to.equal(0);
-			done();
+		return new Promise(resolve => {
+			setTimeout(() => {
+				expect(mutatedNodes.length).to.equal(0);
+				resolve();
+			});
 		});
 	});
 
-	it('should effectively iterate on large component lists', done => {
+	it('should effectively iterate on large component lists', async () => {
 		const newItems = () =>
 			Array(100)
 				.fill(0)
@@ -804,9 +806,11 @@ describe('keys', () => {
 		set();
 		rerender();
 
-		setTimeout(() => {
-			expect(mutatedNodes.length).to.equal(0);
-			done();
+		return new Promise(resolve => {
+			setTimeout(() => {
+				expect(mutatedNodes.length).to.equal(0);
+				resolve();
+			});
 		});
 	});
 
@@ -942,5 +946,209 @@ describe('keys', () => {
 		rerender();
 
 		expect(scratch.innerHTML).to.eq(`<div>${expected(sorted)}</div>`);
+	});
+
+	it('should handle keyed replacements', () => {
+		const actions = [];
+		class Comp extends Component {
+			componentDidMount() {
+				actions.push('mounted ' + this.props.i);
+			}
+			render() {
+				return <div>Hello</div>;
+			}
+		}
+
+		const App = props => {
+			return (
+				<div>
+					<Comp key={props.y} i={1} />
+					{false}
+					<Comp i={2} />
+					<Comp i={3} />
+				</div>
+			);
+		};
+
+		render(<App y="1" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+
+		render(<App y="2" />, scratch);
+		expect(actions).to.deep.equal([
+			'mounted 1',
+			'mounted 2',
+			'mounted 3',
+			'mounted 1'
+		]);
+	});
+
+	it('should handle hole prepend', () => {
+		const actions = [];
+		class Comp extends Component {
+			componentDidMount() {
+				actions.push('mounted ' + this.props.i);
+			}
+			render() {
+				return <div>Hello</div>;
+			}
+		}
+
+		const App = props => {
+			return props.y === '2' ? (
+				<div>
+					<Comp key={1} i={1} />
+					<Comp key={2} i={2} />
+					<Comp key={3} i={3} />
+				</div>
+			) : (
+				<div>
+					{null}
+					<Comp key={1} i={1} />
+					<Comp key={2} i={2} />
+					<Comp key={3} i={3} />
+				</div>
+			);
+		};
+
+		render(<App y="1" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+
+		render(<App y="2" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+	});
+
+	it('should handle hole replace', () => {
+		const actions = [];
+		class Comp extends Component {
+			componentDidMount() {
+				actions.push('mounted ' + this.props.i);
+			}
+			render() {
+				return <div>Hello</div>;
+			}
+		}
+
+		const App = props => {
+			return props.y === '1' ? (
+				<div>
+					<Comp key={1} i={1} />
+					<Comp key={2} i={2} />
+					<Comp key={3} i={3} />
+				</div>
+			) : (
+				<div>
+					<Comp key={1} i={1} />
+					{null}
+					<Comp key={3} i={3} />
+				</div>
+			);
+		};
+
+		render(<App y="1" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+
+		render(<App y="2" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+
+		render(<App y="1" />, scratch);
+		expect(actions).to.deep.equal([
+			'mounted 1',
+			'mounted 2',
+			'mounted 3',
+			'mounted 2'
+		]);
+	});
+
+	it('should handle hole insert', () => {
+		const actions = [];
+		class Comp extends Component {
+			componentDidMount() {
+				actions.push('mounted ' + this.props.i);
+			}
+			render() {
+				return <div>Hello</div>;
+			}
+		}
+
+		const App = props => {
+			return props.y === '2' ? (
+				<div>
+					<Comp key={1} i={1} />
+					<Comp key={2} i={2} />
+					<Comp key={3} i={3} />
+				</div>
+			) : (
+				<div>
+					<Comp key={1} i={1} />
+					<Comp key={2} i={2} />
+					{null}
+					<Comp key={3} i={3} />
+				</div>
+			);
+		};
+
+		render(<App y="1" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+
+		render(<App y="2" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+	});
+
+	it('should handle hole apppend', () => {
+		const actions = [];
+		class Comp extends Component {
+			componentDidMount() {
+				actions.push('mounted ' + this.props.i);
+			}
+			render() {
+				return <div>Hello</div>;
+			}
+		}
+
+		const App = props => {
+			return props.y === '2' ? (
+				<div>
+					<Comp key={1} i={1} />
+					<Comp key={2} i={2} />
+					<Comp key={3} i={3} />
+				</div>
+			) : (
+				<div>
+					<Comp key={1} i={1} />
+					<Comp key={2} i={2} />
+					<Comp key={3} i={3} />
+					{null}
+				</div>
+			);
+		};
+
+		render(<App y="1" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+
+		render(<App y="2" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+	});
+
+	// Issue #4973: Test growing list diff
+	it('should correctly diff a growing list of keyed children', () => {
+		let values = [0, 1, 2, 3, 4];
+
+		render(<List values={values} />, scratch);
+		expect(scratch.textContent).to.equal('01234');
+
+		values = [2, 3, 4, 5, 6];
+		clearLog();
+
+		render(<List values={values} />, scratch);
+		expect(scratch.textContent).to.equal('23456');
+
+		expect(getLog()).to.deep.equal([
+			'<li>0.remove()',
+			'<li>1.remove()',
+			'<li>.appendChild(#text)',
+			'<ol>234.appendChild(<li>5)',
+			'<li>.appendChild(#text)',
+			'<ol>2345.appendChild(<li>6)'
+		]);
 	});
 });

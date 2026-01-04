@@ -9,7 +9,25 @@ import {
 	jsxEscape
 } from 'preact/jsx-runtime';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
-import { encodeEntities } from 'preact/jsx-runtime/src/utils';
+import { encodeEntities } from '../../src/utils';
+
+function createSignal(value) {
+	return {
+		value,
+		peek() {
+			return value;
+		},
+		subscribe() {
+			return () => {};
+		},
+		valueOf() {
+			return value;
+		},
+		toString() {
+			return String(value);
+		}
+	};
+}
 
 describe('Babel jsx/jsxDEV', () => {
 	let scratch;
@@ -66,6 +84,12 @@ describe('Babel jsx/jsxDEV', () => {
 		expect(vnode.props).to.deep.equal({
 			foo: 'bar'
 		});
+	});
+
+	it('should respect defaultProps when props are null', () => {
+		const Component = ({ children }) => children;
+		Component.defaultProps = { foo: 'bar' };
+		expect(jsx(Component, { foo: null }).props).to.deep.equal({ foo: null });
 	});
 
 	it('should keep props over defaultProps', () => {
@@ -156,6 +180,15 @@ describe('precompiled JSX', () => {
 
 		it('should escape values', () => {
 			expect(jsxAttr('foo', "&<'")).to.equal('foo="&amp;&lt;\'"');
+			expect(jsxAttr('style', { foo: `"&<'"` })).to.equal(
+				'style="foo:&quot;&amp;&lt;\'&quot;;"'
+			);
+		});
+
+		it('should support signals', () => {
+			const sig = createSignal(`&<'"`);
+			expect(jsxAttr('foo', sig)).to.equal(`foo="&amp;&lt;'&quot;"`);
+			expect(jsxAttr('style', sig)).to.equal(`style="&amp;&lt;'&quot;"`);
 		});
 
 		it('should call options.attr()', () => {

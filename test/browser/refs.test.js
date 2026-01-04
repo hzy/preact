@@ -1,6 +1,7 @@
 import { setupRerender } from 'preact/test-utils';
 import { createElement, render, Component, createRef, Fragment } from 'preact';
 import { setupScratch, teardown } from '../_util/helpers';
+import { vi } from 'vitest';
 
 /** @jsx createElement */
 
@@ -130,7 +131,9 @@ describe('refs', () => {
 		let outer = spy('outer'),
 			inner = spy('inner'),
 			InnermostComponent = 'span',
+			/** @type {() => void} */
 			update,
+			/** @type {Inner} */
 			inst;
 		class Outer extends Component {
 			constructor() {
@@ -194,6 +197,7 @@ describe('refs', () => {
 			innermost = spy('innermost'),
 			InnermostComponent = 'span',
 			outerInst,
+			/** @type {Inner} */
 			innerInst;
 		class Outer extends Component {
 			constructor() {
@@ -270,9 +274,9 @@ describe('refs', () => {
 				return <div />;
 			}
 		}
-		const Bar = spy('Bar', () => <div />);
+		const Bar = vi.fn(() => <div />);
 
-		sinon.spy(Foo.prototype, 'render');
+		vi.spyOn(Foo.prototype, 'render');
 
 		render(
 			<div>
@@ -282,15 +286,8 @@ describe('refs', () => {
 			scratch
 		);
 
-		expect(Foo.prototype.render).to.have.been.calledWithMatch(
-			{ ref: sinon.match.falsy, a: 'a' },
-			{},
-			{}
-		);
-		expect(Bar).to.have.been.calledWithMatch(
-			{ b: 'b', ref: sinon.match.falsy },
-			{}
-		);
+		expect(Foo.prototype.render).toHaveBeenCalledWith({ a: 'a' }, {}, {});
+		expect(Bar).toHaveBeenCalledWith({ b: 'b' }, {});
 	});
 
 	// Test for #232
@@ -335,6 +332,7 @@ describe('refs', () => {
 	});
 
 	it('should null and re-invoke refs when swapping component root element type', () => {
+		/** @type {Child} */
 		let inst;
 
 		class App extends Component {
@@ -416,8 +414,10 @@ describe('refs', () => {
 	});
 
 	// Test for #1177
-	it('should call ref after children are rendered', done => {
+	it('should call ref after children are rendered', async () => {
+		/** @type {HTMLInputElement} */
 		let input;
+		let res;
 		function autoFocus(el) {
 			if (el) {
 				input = el;
@@ -426,13 +426,17 @@ describe('refs', () => {
 				// See https://stackoverflow.com/questions/17384464/
 				setTimeout(() => {
 					el.focus();
-					done();
+					res();
 				}, 1);
 			}
 		}
 
 		render(<input type="text" ref={autoFocus} value="foo" />, scratch);
 		expect(input.value).to.equal('foo');
+
+		return new Promise(resolve => {
+			res = resolve;
+		});
 	});
 
 	it('should correctly set nested child refs', () => {
@@ -545,6 +549,7 @@ describe('refs', () => {
 	// Test for #4049
 	it('should first clean-up refs and after apply them', () => {
 		let calls = [];
+		/** @type {() => void} */
 		let set;
 		class App extends Component {
 			constructor(props) {
