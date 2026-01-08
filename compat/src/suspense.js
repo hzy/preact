@@ -57,6 +57,9 @@ function detachedClone(vnode, detachedParent, parentDom) {
 			if (vnode._component._parentDom === parentDom) {
 				vnode._component._parentDom = detachedParent;
 			}
+
+			vnode._component._force = true;
+
 			vnode._component = null;
 		}
 
@@ -240,18 +243,23 @@ export function suspended(vnode) {
 
 export function lazy(loader) {
 	let prom;
-	let component;
+	let component = null;
 	let error;
+	let resolved;
 
 	function Lazy(props) {
 		if (!prom) {
 			prom = loader();
 			prom.then(
 				exports => {
-					component = exports.default || exports;
+					if (exports) {
+						component = exports.default || exports;
+					}
+					resolved = true;
 				},
 				e => {
 					error = e;
+					resolved = true;
 				}
 			);
 		}
@@ -260,11 +268,11 @@ export function lazy(loader) {
 			throw error;
 		}
 
-		if (!component) {
+		if (!resolved) {
 			throw prom;
 		}
 
-		return createElement(component, props);
+		return component ? createElement(component, props) : null;
 	}
 
 	Lazy.displayName = 'Lazy';

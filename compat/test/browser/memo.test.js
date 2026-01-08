@@ -46,6 +46,7 @@ describe('memo()', () => {
 
 		let Memoized = memo(Foo);
 
+		/** @type {() => void} */
 		let update;
 		class App extends Component {
 			constructor() {
@@ -78,6 +79,7 @@ describe('memo()', () => {
 
 		let Memoized = memo(Foo);
 
+		/** @type {(v) => void} */
 		let update;
 		class App extends Component {
 			constructor() {
@@ -111,6 +113,7 @@ describe('memo()', () => {
 		let spy = sinon.spy(() => true);
 		let Memoized = memo(Foo, spy);
 
+		/** @type {(v) => void} */
 		let update;
 		class App extends Component {
 			constructor() {
@@ -229,5 +232,14 @@ describe('memo()', () => {
 		expect(scratch.innerHTML).to.equal(
 			`<ol><li>A</li><li>B</li><li class="selected">C</li><li>D</li></ol>`
 		);
+	});
+
+	it('should attach .type pointing to the original component', () => {
+		function Foo() {
+			return <div />;
+		}
+		const Memoized = memo(Foo);
+
+		expect(Memoized.type).to.equal(Foo);
 	});
 });

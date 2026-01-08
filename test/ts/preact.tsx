@@ -6,8 +6,21 @@ import {
 	FunctionalComponent,
 	AnyComponent,
 	h,
-	createRef
+	createRef,
+	JSX
 } from '../../';
+
+function createSignal<T>(value: T): JSX.SignalLike<T> {
+	return {
+		value,
+		peek() {
+			return value;
+		},
+		subscribe() {
+			return () => {};
+		}
+	};
+}
 
 interface DummyProps {
 	initialInput: string;
@@ -138,22 +151,21 @@ const UseOfComponentWithChildren = () => {
 	);
 };
 
-// TODO: make this work
-// const DummyChildren: FunctionalComponent = ({ children }) => {
-// 	return children;
-// };
+const DummyChildren: FunctionalComponent = ({ children }) => {
+	return children;
+};
 
-// function ReturnChildren(props: { children: preact.ComponentChildren }) {
-// 	return props.children;
-// }
+function ReturnChildren(props: { children: preact.ComponentChildren }) {
+	return props.children;
+}
 
-// function TestUndefinedChildren() {
-// 	return (
-// 		<ReturnChildren>
-// 			<ReturnChildren>Hello</ReturnChildren>
-// 		</ReturnChildren>
-// 	);
-// }
+function TestUndefinedChildren() {
+	return (
+		<ReturnChildren>
+			<ReturnChildren>Hello</ReturnChildren>
+		</ReturnChildren>
+	);
+}
 
 // using ref and or jsx
 class ComponentUsingRef extends Component<any, any> {
@@ -351,6 +363,10 @@ const acceptsStringAsLength = <div style={{ marginTop: '20px' }} />;
 
 const ReturnNull: FunctionalComponent = () => null;
 
+// Should accept arbitrary properties outside of JSX.HTMLAttributes
+h('option', { x: 'foo' });
+createElement('option', { value: 'foo' });
+
 // Refs should work on elements
 const ref = createRef<HTMLDivElement>();
 createElement('div', { ref: ref }, 'hi');
@@ -375,7 +391,55 @@ const onBeforeInput = (e: h.JSX.TargetedInputEvent<HTMLInputElement>) => {};
 createElement('input', { onBeforeInput: onBeforeInput });
 h('input', { onBeforeInput: onBeforeInput });
 
+// Should accept onSubmit
 const onSubmit = (e: h.JSX.TargetedSubmitEvent<HTMLFormElement>) => {};
 <form onSubmit={e => e.currentTarget.elements} />;
 createElement('form', { onSubmit: onSubmit });
 h('form', { onSubmit: onSubmit });
+
+// Should accept onToggle
+const onToggle = (e: h.JSX.TargetedToggleEvent<HTMLDetailsElement>) => {};
+<dialog onToggle={e => ({ newState: e.newState, oldState: e.oldState })} />;
+createElement('dialog', { onToggle: onToggle });
+h('dialog', { onToggle: onToggle });
+
+// Should default to correct event target element for the attribute interface
+h<JSX.InputHTMLAttributes>('input', { onClick: e => e.currentTarget.capture });
+createElement<JSX.InputHTMLAttributes>('input', {
+	onClick: e => e.currentTarget.capture
+});
+<input onClick={e => e.currentTarget.capture} />;
+
+function Checkbox({ onChange }: JSX.HTMLAttributes<HTMLInputElement>) {
+	function handleChange(
+		this: void,
+		event: JSX.TargetedEvent<HTMLInputElement>
+	) {
+		onChange?.call(this, event);
+	}
+
+	return <input onChange={handleChange} />;
+}
+
+// `AllHTMLAttributes` should support all interfaces used within `JSX.IntrinsicElements`
+const allHTMLAttributes: JSX.AllHTMLAttributes<HTMLMarqueeElement> = {
+	// Global HTMLAttributes
+	class: 'foo',
+
+	// Per-element attributes
+	autoCapitalize: 'off',
+	dateTime: '2021-01-01',
+	href: createSignal('https://example.com'),
+	itemID: 'foo',
+	maxlength: createSignal(10),
+	playsInline: true,
+
+	// ClassAttributes
+	ref: createRef<HTMLMarqueeElement>(),
+
+	// DOMAttributes
+	onClick: (e: JSX.TargetedEvent<HTMLMarqueeElement>) => {},
+
+	// AriaAttributes
+	'aria-colcount': 1
+};

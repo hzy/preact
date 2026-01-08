@@ -1,7 +1,8 @@
 import { setupRerender } from 'preact/test-utils';
 import { createElement, render, Component, Fragment } from 'preact';
+import { vi } from 'vitest';
 import { setupScratch, teardown } from '../../_util/helpers';
-import { logCall, clearLog } from '../../_util/logCall';
+import { logCall, getLog, clearLog } from '../../_util/logCall';
 
 /** @jsx createElement */
 
@@ -19,13 +20,13 @@ describe('Lifecycle methods', () => {
 	let resetRemoveChild;
 	let resetRemove;
 
-	before(() => {
+	beforeAll(() => {
 		resetInsertBefore = logCall(Element.prototype, 'insertBefore');
 		resetRemoveChild = logCall(Element.prototype, 'appendChild');
 		resetRemove = logCall(Element.prototype, 'removeChild');
 	});
 
-	after(() => {
+	afterAll(() => {
 		resetInsertBefore();
 		resetRemoveChild();
 		resetRemove();
@@ -51,8 +52,8 @@ describe('Lifecycle methods', () => {
 				this.state = { show: true };
 				setState = s => this.setState(s);
 			}
-			render(props, { show }) {
-				return show ? <div /> : null;
+			render() {
+				return this.state.show ? <div /> : null;
 			}
 		}
 
@@ -62,17 +63,18 @@ describe('Lifecycle methods', () => {
 			}
 		}
 
-		sinon.spy(Should.prototype, 'render');
-		sinon.spy(ShouldNot.prototype, 'shouldComponentUpdate');
-
-		beforeEach(() => Should.prototype.render.resetHistory());
+		beforeEach(() => {
+			vi.spyOn(Should.prototype, 'render');
+			vi.spyOn(ShouldNot.prototype, 'render');
+			vi.spyOn(ShouldNot.prototype, 'shouldComponentUpdate');
+		});
 
 		it('should rerender component on change by default', () => {
 			render(<Should />, scratch);
 			setState({ show: false });
 			rerender();
 
-			expect(Should.prototype.render).to.have.been.calledTwice;
+			expect(Should.prototype.render).toHaveBeenCalledTimes(2);
 		});
 
 		it('should not rerender component if shouldComponentUpdate returns false', () => {
@@ -80,8 +82,8 @@ describe('Lifecycle methods', () => {
 			setState({ show: false });
 			rerender();
 
-			expect(ShouldNot.prototype.shouldComponentUpdate).to.have.been.calledOnce;
-			expect(ShouldNot.prototype.render).to.have.been.calledOnce;
+			expect(ShouldNot.prototype.shouldComponentUpdate).toHaveBeenCalledOnce();
+			expect(ShouldNot.prototype.render).toHaveBeenCalledOnce();
 		});
 
 		it('should reorder non-updating text children', () => {
@@ -915,8 +917,8 @@ describe('Lifecycle methods', () => {
 				};
 				showText = () => this.setState({ show: true });
 			}
-			render(props, { show }) {
-				if (!show) return null;
+			render() {
+				if (!this.state.show) return null;
 
 				return <div>Component</div>;
 			}
@@ -959,5 +961,62 @@ describe('Lifecycle methods', () => {
 		expect(scratch.innerHTML).to.equal(
 			`<div>Before</div><div>Component</div><div>After</div>`
 		);
+	});
+
+	it('should not re-insert memoized items that keep their relative order after swap', () => {
+		class MemoizedItem extends Component {
+			shouldComponentUpdate(nextProps) {
+				return nextProps.value !== this.props.value;
+			}
+			render() {
+				return <div>{this.props.value}</div>;
+			}
+		}
+
+		const App = ({ items }) => (
+			<div>
+				{items.map(value => (
+					<MemoizedItem key={value} value={value} />
+				))}
+			</div>
+		);
+
+		render(<App items={[1, 2, 3, 4, 5, 6, 7]} />, scratch);
+
+		function renderItemsAndAssert({ items, expectedLog }) {
+			clearLog();
+			render(<App items={items} />, scratch);
+			expect(scratch.innerHTML).to.equal(
+				`<div>${items.map(value => `<div>${value}</div>`).join('')}</div>`
+			);
+			expect(getLog()).to.deep.equal(expectedLog);
+		}
+
+		// Swap 1 and 7
+		renderItemsAndAssert({
+			items: [7, 2, 3, 4, 5, 6, 1],
+			expectedLog: [
+				'<div>1234567.insertBefore(<div>7, <div>1)',
+				'<div>7123456.appendChild(<div>1)'
+			]
+		});
+
+		// Swap 2 and 6
+		renderItemsAndAssert({
+			items: [7, 6, 3, 4, 5, 2, 1],
+			expectedLog: [
+				'<div>7234561.insertBefore(<div>6, <div>2)',
+				'<div>7623451.insertBefore(<div>2, <div>1)'
+			]
+		});
+
+		// Swap 3 and 5
+		renderItemsAndAssert({
+			items: [7, 6, 5, 4, 3, 2, 1],
+			expectedLog: [
+				'<div>7634521.insertBefore(<div>5, <div>3)',
+				'<div>7653421.insertBefore(<div>3, <div>2)'
+			]
+		});
 	});
 });

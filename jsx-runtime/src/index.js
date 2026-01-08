@@ -56,7 +56,6 @@ function createVNode(type, props, key, isStaticChildren, __source, __self) {
 		_parent: null,
 		_depth: 0,
 		_dom: null,
-		_nextDom: undefined,
 		_component: null,
 		constructor: undefined,
 		_original: --vnodeId,
@@ -70,7 +69,7 @@ function createVNode(type, props, key, isStaticChildren, __source, __self) {
 	// Note: `type` is often a String, and can be `undefined` in development.
 	if (typeof type === 'function' && (ref = type.defaultProps)) {
 		for (i in ref)
-			if (typeof normalizedProps[i] === 'undefined') {
+			if (normalizedProps[i] === undefined) {
 				normalizedProps[i] = ref[i];
 			}
 	}
@@ -97,6 +96,19 @@ const JS_TO_CSS = {};
 const CSS_REGEX = /[A-Z]/g;
 
 /**
+ * Unwrap potential signals.
+ * @param {*} value
+ * @returns {*}
+ */
+function normalizeAttrValue(value) {
+	return value !== null &&
+		typeof value === 'object' &&
+		typeof value.valueOf === 'function'
+		? value.valueOf()
+		: value;
+}
+
+/**
  * Serialize an HTML attribute to a string. This function is not
  * expected to be used directly, but rather through a precompile
  * JSX transform
@@ -109,6 +121,8 @@ function jsxAttr(name, value) {
 		const result = options.attr(name, value);
 		if (typeof result === 'string') return result;
 	}
+
+	value = normalizeAttrValue(value);
 
 	if (name === 'ref' || name === 'key') return '';
 	if (name === 'style' && typeof value === 'object') {
@@ -134,7 +148,7 @@ function jsxAttr(name, value) {
 				str = str + name + ':' + val + suffix;
 			}
 		}
-		return name + '="' + str + '"';
+		return name + '="' + encodeEntities(str) + '"';
 	}
 
 	if (
@@ -146,7 +160,7 @@ function jsxAttr(name, value) {
 		return '';
 	} else if (value === true) return name;
 
-	return name + '="' + encodeEntities(value) + '"';
+	return name + '="' + encodeEntities('' + value) + '"';
 }
 
 /**

@@ -178,6 +178,7 @@ describe('forwardRef', () => {
 	});
 
 	it('should support useImperativeHandle', () => {
+		/** @type {(v) => void} */
 		let setValue;
 		const Foo = forwardRef((props, ref) => {
 			const result = useState('');
@@ -497,5 +498,16 @@ describe('forwardRef', () => {
 		);
 
 		expect(actual).to.equal(null);
+	});
+
+	// Issue #4769
+	it('should attach .render pointing to the original render function', () => {
+		function Foo(props, ref) {
+			return <div ref={ref} />;
+		}
+
+		const Forwarded = forwardRef(Foo);
+
+		expect(Forwarded.render).to.equal(Foo);
 	});
 });

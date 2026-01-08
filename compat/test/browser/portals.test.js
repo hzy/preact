@@ -4,10 +4,13 @@ import React, {
 	createPortal,
 	useState,
 	Component,
-	useEffect
+	useEffect,
+	Fragment,
+	useId
 } from 'preact/compat';
 import { setupScratch, teardown } from '../../../test/_util/helpers';
 import { setupRerender, act } from 'preact/test-utils';
+import { expect } from 'chai';
 
 /* eslint-disable react/jsx-boolean-value, react/display-name, prefer-arrow-callback */
 
@@ -45,6 +48,7 @@ describe('Portal', () => {
 	});
 
 	it('should insert the portal', () => {
+		/** @type {() => void} */
 		let setFalse;
 		function Foo(props) {
 			const [mounted, setMounted] = useState(true);
@@ -64,7 +68,38 @@ describe('Portal', () => {
 		expect(scratch.innerHTML).to.equal('<div><p>Hello</p></div>');
 	});
 
+	it('should order portal children well', () => {
+		/** @type {() => void} */
+		let bump;
+
+		function Modal() {
+			const [state, setState] = useState(0);
+			bump = () => setState(() => 1);
+
+			return (
+				<Fragment>
+					{state === 1 && <div>top</div>}
+					<div>middle</div>
+					<div>bottom</div>
+				</Fragment>
+			);
+		}
+
+		function Foo(props) {
+			return createPortal(<Modal />, scratch);
+		}
+		render(<Foo />, scratch);
+		expect(scratch.innerHTML).to.equal('<div>middle</div><div>bottom</div>');
+
+		bump();
+		rerender();
+		expect(scratch.innerHTML).to.equal(
+			'<div>top</div><div>middle</div><div>bottom</div>'
+		);
+	});
+
 	it('should toggle the portal', () => {
+		/** @type {() => void} */
 		let toggle;
 
 		function Foo(props) {
@@ -100,6 +135,7 @@ describe('Portal', () => {
 	});
 
 	it('should notice prop changes on the portal', () => {
+		/** @type {(c) => void} */
 		let set;
 
 		function Foo(props) {
@@ -125,6 +161,7 @@ describe('Portal', () => {
 
 	it('should not unmount the portal component', () => {
 		let spy = sinon.spy();
+		/** @type {(c) => void} */
 		let set;
 		class Child extends Component {
 			componentWillUnmount() {
@@ -177,6 +214,76 @@ describe('Portal', () => {
 		expect(scratch.firstChild.firstChild.childNodes.length).to.equal(0);
 	});
 
+	it('should have unique ids for each portal', () => {
+		let root = document.createElement('div');
+		let dialog = document.createElement('div');
+		dialog.id = 'container';
+
+		scratch.appendChild(root);
+		scratch.appendChild(dialog);
+
+		function Id() {
+			const id = useId();
+			return id;
+		}
+
+		function Dialog() {
+			return <Id />;
+		}
+
+		function App() {
+			return (
+				<div>
+					<Id />
+					{createPortal(<Dialog />, dialog)}
+				</div>
+			);
+		}
+
+		render(<App />, root);
+		expect(scratch.innerHTML).to.equal(
+			'<div><div>P0-0</div></div><div id="container">P0-1</div>'
+		);
+	});
+
+	it('should have unique ids for each portal, even when a new one shows up', () => {
+		let root = document.createElement('div');
+		let dialog = document.createElement('div');
+		dialog.id = 'container';
+
+		scratch.appendChild(root);
+		scratch.appendChild(dialog);
+
+		function Id() {
+			const id = useId();
+			return id;
+		}
+
+		function Dialog(props) {
+			return <Id />;
+		}
+
+		function App(props) {
+			return (
+				<div>
+					<Id />
+					{createPortal(<Dialog />, dialog)}
+					{props.renderPortal && createPortal(<Dialog />, dialog)}
+				</div>
+			);
+		}
+
+		render(<App />, root);
+		expect(scratch.innerHTML).to.equal(
+			'<div><div>P0-0</div></div><div id="container">P0-1</div>'
+		);
+
+		render(<App renderPortal={true} />, root);
+		expect(scratch.innerHTML).to.equal(
+			'<div><div>P0-0</div></div><div id="container">P0-1P0-2</div>'
+		);
+	});
+
 	it('should unmount Portal', () => {
 		let root = document.createElement('div');
 		let dialog = document.createElement('div');
@@ -200,7 +307,10 @@ describe('Portal', () => {
 	});
 
 	it('should leave a working root after the portal', () => {
-		let toggle, toggle2;
+		/** @type {() => void} */
+		let toggle,
+			/** @type {() => void} */
+			toggle2;
 
 		function Foo(props) {
 			const [mounted, setMounted] = useState(false);
@@ -249,7 +359,10 @@ describe('Portal', () => {
 	});
 
 	it('should work with stacking portals', () => {
-		let toggle, toggle2;
+		/** @type {() => void} */
+		let toggle,
+			/** @type {() => void} */
+			toggle2;
 
 		function Foo(props) {
 			const [mounted, setMounted] = useState(false);
@@ -297,6 +410,7 @@ describe('Portal', () => {
 	});
 
 	it('should work with changing the container', () => {
+		/** @type {(c) => void} */
 		let set, ref;
 
 		function Foo(props) {
@@ -333,7 +447,10 @@ describe('Portal', () => {
 	});
 
 	it('should work with replacing placeholder portals', () => {
-		let toggle, toggle2;
+		/** @type {() => void} */
+		let toggle,
+			/** @type {() => void} */
+			toggle2;
 
 		function Foo(props) {
 			const [mounted, setMounted] = useState(false);
@@ -379,6 +496,7 @@ describe('Portal', () => {
 	});
 
 	it('should work with removing an element from stacked container to new one', () => {
+		/** @type {() => void} */
 		let toggle, root2;
 
 		function Foo(props) {
@@ -415,7 +533,11 @@ describe('Portal', () => {
 	});
 
 	it('should support nested portals', () => {
-		let toggle, toggle2, inner;
+		/** @type {() => void} */
+		let toggle,
+			/** @type {() => void} */
+			toggle2,
+			inner;
 
 		function Bar() {
 			const [mounted, setMounted] = useState(false);
@@ -568,6 +690,7 @@ describe('Portal', () => {
 	});
 
 	it('should switch between non portal and portal node (Modal as lastChild)', () => {
+		/** @type {() => void} */
 		let toggle;
 		const Modal = ({ children, open }) =>
 			open ? createPortal(<div>{children}</div>, scratch) : <div>Closed</div>;
@@ -597,6 +720,7 @@ describe('Portal', () => {
 	});
 
 	it('should switch between non portal and portal node (Modal as firstChild)', () => {
+		/** @type {() => void} */
 		let toggle;
 		const Modal = ({ children, open }) =>
 			open ? createPortal(<div>{children}</div>, scratch) : <div>Closed</div>;

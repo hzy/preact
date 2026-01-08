@@ -1,5 +1,5 @@
 import { setupRerender } from 'preact/test-utils';
-import { createElement, render, Component, options } from 'preact';
+import { createElement, render, Component, options, Fragment } from 'preact';
 import {
 	setupScratch,
 	teardown,
@@ -43,14 +43,14 @@ describe('render()', () => {
 		teardown(scratch);
 	});
 
-	before(() => {
+	beforeAll(() => {
 		resetAppendChild = logCall(Element.prototype, 'appendChild');
 		resetInsertBefore = logCall(Element.prototype, 'insertBefore');
 		resetRemoveChild = logCall(Element.prototype, 'removeChild');
 		resetRemove = logCall(Element.prototype, 'remove');
 	});
 
-	after(() => {
+	afterAll(() => {
 		resetAppendChild();
 		resetInsertBefore();
 		resetRemoveChild();
@@ -91,6 +91,20 @@ describe('render()', () => {
 			expect(scratch.innerHTML).to.eql(`<img width="100px" height="100px">`);
 		});
 	}
+
+	it('should support the <template> tag', () => {
+		function App() {
+			return (
+				<template>
+					<h1>it works</h1>
+				</template>
+			);
+		}
+
+		render(<App />, scratch);
+		const clone = scratch.firstChild.content.cloneNode(true);
+		expect(clone.firstChild.outerHTML).to.eql('<h1>it works</h1>');
+	});
 
 	it('should not render when detecting JSON-injection', () => {
 		const vnode = JSON.parse('{"type":"span","children":"Malicious"}');
@@ -426,6 +440,7 @@ describe('render()', () => {
 
 	// Test for #3969
 	it('should clear rowspan and colspan', () => {
+		/** @type {(v) => void} */
 		let update;
 		class App extends Component {
 			constructor(props) {
@@ -658,6 +673,7 @@ describe('render()', () => {
 		});
 
 		it('should apply proper mutation for VNodes with dangerouslySetInnerHTML attr', () => {
+			/** @type {Component} */
 			let thing;
 			class Thing extends Component {
 				constructor(props, context) {
@@ -709,6 +725,7 @@ describe('render()', () => {
 				}
 			}
 
+			/** @type {Component} */
 			let thing;
 			render(<Thing ref={r => (thing = r)} />, scratch);
 
@@ -721,6 +738,7 @@ describe('render()', () => {
 		});
 
 		it('should unmount dangerouslySetInnerHTML', () => {
+			/** @type {(v) => void} */
 			let set;
 
 			const TextDiv = () => (
@@ -831,7 +849,9 @@ describe('render()', () => {
 
 		let todoText = 'new todo that I should complete';
 		let input;
+		/** @type {(v) => void} */
 		let setText;
+		/** @type {(v) => void} */
 		let addTodo;
 
 		const ENTER = 13;
@@ -1013,6 +1033,7 @@ describe('render()', () => {
 
 	it('should not re-render when a component returns undefined', () => {
 		let Dialog = () => undefined;
+		/** @type {() => void} */
 		let updateState;
 		class App extends Component {
 			constructor(props) {
@@ -1043,6 +1064,7 @@ describe('render()', () => {
 
 	it('should not lead to stale DOM nodes', () => {
 		let i = 0;
+		/** @type {() => void} */
 		let updateApp;
 		class App extends Component {
 			render() {
@@ -1051,6 +1073,7 @@ describe('render()', () => {
 			}
 		}
 
+		/** @type {() => void} */
 		let updateParent;
 		function Parent() {
 			updateParent = () => this.forceUpdate();
@@ -1097,6 +1120,7 @@ describe('render()', () => {
 		}
 
 		let ref;
+		/** @type {() => void} */
 		let updateApp;
 		class App extends Component {
 			constructor() {
@@ -1130,8 +1154,10 @@ describe('render()', () => {
 	});
 
 	it('should not remove iframe', () => {
+		/** @type {(v) => void} */
 		let setState;
 		const Iframe = () => {
+			// oxlint-disable-next-line iframe-missing-sandbox
 			return <iframe src="https://codesandbox.io/s/runtime-silence-no4zx" />;
 		};
 
@@ -1198,6 +1224,7 @@ describe('render()', () => {
 	});
 
 	it('should not call options.debounceRendering unnecessarily', () => {
+		/** @type {A} */
 		let comp;
 
 		class A extends Component {
@@ -1370,6 +1397,7 @@ describe('render()', () => {
 	it('should not crash or repeatedly add the same child when replacing a matched vnode with null', () => {
 		const B = () => <div>B</div>;
 
+		/** @type {() => void} */
 		let update;
 		class App extends Component {
 			constructor(props) {
@@ -1785,6 +1813,115 @@ describe('render()', () => {
 		);
 	});
 
+	// #2949
+	it.skip('should not swap unkeyed chlildren', () => {
+		class X extends Component {
+			constructor(props) {
+				super(props);
+				this.name = props.name;
+			}
+			render() {
+				return <p>{this.name}</p>;
+			}
+		}
+
+		function Foo({ condition }) {
+			return (
+				<div>
+					{condition ? '' : <X name="A" />}
+					{condition ? <X name="B" /> : ''}
+				</div>
+			);
+		}
+
+		render(<Foo />, scratch);
+		expect(scratch.textContent).to.equal('A');
+
+		render(<Foo condition />, scratch);
+		expect(scratch.textContent).to.equal('B');
+
+		render(<Foo />, scratch);
+		expect(scratch.textContent).to.equal('A');
+	});
+
+	// #2949
+	it.skip('should not swap unkeyed chlildren', () => {
+		const calls = [];
+		class X extends Component {
+			constructor(props) {
+				super(props);
+				calls.push(props.name);
+				this.name = props.name;
+			}
+			render() {
+				return <p>{this.name}</p>;
+			}
+		}
+
+		function Foo({ condition }) {
+			return (
+				<div>
+					<X name="1" />
+					{condition ? '' : <X name="A" />}
+					{condition ? <X name="B" /> : ''}
+					<X name="C" />
+				</div>
+			);
+		}
+
+		render(<Foo />, scratch);
+		expect(scratch.textContent).to.equal('1AC');
+		expect(calls).to.deep.equal(['1', 'A', 'C']);
+
+		render(<Foo condition />, scratch);
+		expect(scratch.textContent).to.equal('1BC');
+		expect(calls).to.deep.equal(['1', 'A', 'C', 'B']);
+
+		render(<Foo />, scratch);
+		expect(scratch.textContent).to.equal('1AC');
+		expect(calls).to.deep.equal(['1', 'A', 'C', 'B', 'A']);
+	});
+
+	it('should retain state for inserted children', () => {
+		class X extends Component {
+			constructor(props) {
+				super(props);
+				this.name = props.name;
+			}
+			render() {
+				return <p>{this.name}</p>;
+			}
+		}
+
+		function Foo({ condition }) {
+			// We swap the prop from A to B but we don't expect this to
+			// reflect in text-content as we are testing whether the
+			// state is retained for a skew that matches the original children.
+			//
+			// We insert <span /> which should amount to a skew of -1 which should
+			// make us correctly match the X component.
+			return condition ? (
+				<div>
+					<span />
+					<X name="B" />
+				</div>
+			) : (
+				<div>
+					<X name="A" />
+				</div>
+			);
+		}
+
+		render(<Foo />, scratch);
+		expect(scratch.textContent).to.equal('A');
+
+		render(<Foo condition />, scratch);
+		expect(scratch.textContent).to.equal('A');
+
+		render(<Foo />, scratch);
+		expect(scratch.textContent).to.equal('A');
+	});
+
 	it('handle shuffled (stress test)', () => {
 		function randomize(arr) {
 			for (let i = arr.length - 1; i > 0; i--) {
@@ -1811,5 +1948,65 @@ describe('render()', () => {
 				`<div>${aa.map(n => `<div>${n}</div>`).join('')}</div>`
 			);
 		}
+	});
+
+	it('should not remount components when replacing a component with a falsy value in-between', () => {
+		const actions = [];
+		class Comp extends Component {
+			componentDidMount() {
+				actions.push('mounted ' + this.props.i);
+			}
+			render() {
+				return <div>Hello</div>;
+			}
+		}
+
+		const App = props => {
+			return (
+				<div>
+					{props.y === '1' ? <Comp i={1} /> : <div />}
+					{false}
+					<Comp i={2} />
+					<Comp i={3} />
+				</div>
+			);
+		};
+
+		render(<App y="1" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+
+		render(<App y="2" />, scratch);
+		expect(actions).to.deep.equal(['mounted 1', 'mounted 2', 'mounted 3']);
+	});
+
+	it('Should render intercepted component', () => {
+		class Test {
+			constructor(text) {
+				this.text = text;
+			}
+		}
+
+		const TestValue = props => {
+			return props.text;
+		};
+
+		Object.defineProperties(Test.prototype, {
+			constructor: { configurable: true, value: undefined },
+			type: { configurable: true, value: TestValue },
+			props: {
+				configurable: true,
+				get() {
+					return { text: this.text };
+				}
+			},
+			_depth: { configurable: true, value: 1 }
+		});
+
+		const test = new Test('hello world');
+
+		const App = () => <Fragment>{test}</Fragment>;
+
+		render(<App />, scratch);
+		expect(scratch.innerHTML).to.equal('hello world');
 	});
 });
