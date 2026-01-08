@@ -3,7 +3,6 @@ import fs from 'fs';
 import { fetch, stream } from 'undici';
 import sade from 'sade';
 import { modifyPackageJSON } from './modify-package-json.mjs';
-import { getOtp } from '@continuous-auth/client';
 
 let DEBUG = false;
 const log = {
@@ -91,8 +90,6 @@ async function main(tag, opts) {
 	if (opts['npm-tag']) {
 		args.push('--tag', opts['npm-tag']);
 	}
-
-	args.push('--otp', await getOtp());
 
 	log.info(`Executing \`npm ${args.join(' ')}\``);
 	if (!opts['dry-run']) {
