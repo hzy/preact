@@ -4,7 +4,7 @@ on: create
 jobs:
   build:
     if: github.ref_type == 'tag'
-    uses: ./.github/workflows/ci.yml
+    uses: hzy/preact/.github/workflows/build-test.yml@lynx/v10.24.x
 
   release:
     runs-on: ubuntu-latest
