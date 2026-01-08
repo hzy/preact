@@ -3,7 +3,7 @@ import fs from 'fs';
 import { fetch, stream } from 'undici';
 import sade from 'sade';
 import { modifyPackageJSON } from './modify-package-json.mjs';
-import { getOtp } from '@continuous-auth/client';
+import { Readable } from 'stream';
 
 let DEBUG = false;
 const log = {
@@ -72,27 +72,42 @@ async function main(tag, opts) {
 
 	// 3. Download release asset
 	log.info(`\nDownloading ${packageAsset.name}...`);
-	await stream(
-		packageAsset.browser_download_url,
-		{
-			method: 'GET',
-			maxRedirections: 30
-		},
-		() =>
-			modifyPackageJSON(fs.createWriteStream(packageAsset.name), pkg => ({
-				...pkg,
-				version: tag,
-				name: '@hongzhiyuan/preact'
-			}))
-	);
+	const downloadResponse = await fetch(packageAsset.browser_download_url, {
+		method: 'GET',
+		maxRedirections: 30
+	});
+
+	if (!downloadResponse.body) {
+		throw new Error('Download response body is empty.');
+	}
+
+	const writeStream = fs.createWriteStream(packageAsset.name);
+	const modifyInputStream = modifyPackageJSON(writeStream, pkg => ({
+		...pkg,
+		version: tag,
+		name: '@hongzhiyuan/preact'
+	}));
+
+	// Convert undici's ReadableStream to Node.js Readable stream
+	const downloadReadable = Readable.fromWeb(downloadResponse.body);
+
+	// Pipe the download stream into the modifyInputStream
+	downloadReadable.pipe(modifyInputStream);
+
+	// Wait for the writeStream to finish
+	await new Promise((resolve, reject) => {
+		writeStream.on('finish', resolve);
+		writeStream.on('error', reject);
+		modifyInputStream.on('error', reject); // Propagate errors from modifyInputStream
+		downloadReadable.on('error', reject); // Propagate errors from downloadReadable
+	});
 
 	// 3. Run npm publish
 	const args = ['publish', packageAsset.name];
+	opts['npm-tag'] ||= 'latest';
 	if (opts['npm-tag']) {
 		args.push('--tag', opts['npm-tag']);
 	}
-
-	args.push('--otp', await getOtp());
 
 	log.info(`Executing \`npm ${args.join(' ')}\``);
 	if (!opts['dry-run']) {
